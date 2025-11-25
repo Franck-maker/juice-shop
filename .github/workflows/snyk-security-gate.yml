@@ -1,0 +1,76 @@
+name: "Snyk Security Gate"
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  # non blocking security scan on the brranch develop
+  snyk-non-blocking-scan:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Pour téléverser les rapports SARIF
+    steps:
+      - name: "Check out Git repository"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af #v4.1.0
+        with:
+          node-version: '22'
+
+      - name: "Install dependencies"
+        run: npm install
+
+      - name: "Run Snyk to check for vulnerabilities (SCA & SAST) - Non-blocking"
+        uses: snyk/actions/node@master
+        continue-on-error: true # do not fail the workflow 
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: monitor
+          args: --all-projects
+
+      - name: "Run Snyk Code for SAST analysis - Non-blocking"
+        uses: snyk/actions/node@master
+        continue-on-error: true # do not fail the workflow
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+
+  # Blocking security gate on the main branch 
+  snyk-blocking-gate:
+    if: github.event_name == 'pull_request' && github.base_ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # to upload sarif reports
+    steps:
+      - name: "Check out Git repository"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+        with:
+          node-version: '22'
+
+      - name: "Install dependencies"
+        run: npm install
+
+      - name: "Run Snyk to check for vulnerabilities (SCA & SAST) - Blocking"
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --all-projects --sarif-file-output=snyk.sarif --severity-threshold=high
+
+      - name: "Upload Snyk SARIF report"
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif

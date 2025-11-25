@@ -1,4 +1,4 @@
-name: "Snyk Security Scan (SAST & SCA)"
+name: "Snyk SCA Scan"
 
 on:
   push: 
@@ -9,8 +9,6 @@ on:
 jobs:
   snyk:
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write # Nécessaire pour téléverser les rapports SARIF
     steps:
       - name: "Check out Git repository"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -21,33 +19,30 @@ jobs:
         continue-on-error: true
       - name: "Run Snyk to check for code vulnerabilities (SAST)"
         uses: snyk/actions/node@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: code test
           args: --sarif-file-output=snyk-code.sarif
+        continue-on-error: true          
 
       - name: "Set up Node.js"
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af #v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
         with:
           node-version: '22'
 
       - name: "Install dependencies"
         run: npm install
 
-      - name: "Run Snyk to check for open source vulnerabilities (SCA)"
+      - name: "Run Snyk to check for vulnerabilities"
         uses: snyk/actions/node@master
-        continue-on-error: true # Permet au workflow de continuer même si des vulnérabilités sont trouvées
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          command: test
-          args: --sarif-file-output=snyk-sca.sarif
-
-      - name: "Upload Snyk SARIF reports to GitHub"
+          command: monitor
+          args: --sarif-file-output=snyk-code.sarif
+        continue-on-error: true
+      - name: "Upload Snyk SARIF report"
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: |
-            snyk-code.sarif
-            snyk-sca.sarif
+          sarif_file: snyk-code.sarif

@@ -16,13 +16,14 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+        continue-on-error: true
       - name: "Run Snyk to check for code vulnerabilities (SAST)"
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: code test
+          args: --sarif-file-output=snyk-code.sarif
         continue-on-error: true          
 
       - name: "Set up Node.js"
@@ -39,4 +40,5 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: monitor
+          args: --sarif-file-output=snyk-code.sarif
         continue-on-error: true

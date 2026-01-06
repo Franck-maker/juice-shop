@@ -1,50 +1,45 @@
-name: "Application Security Scan"
+name: "Lab 3 - Scan & Fix"
 
 on:
   push: 
     branches: 
        - master
-  pull_request:
 
 jobs:
-  snyk:
+  snyk-analysis:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      contents: read
     steps:
       - name: "Check out Git repository"
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-      - name: "Run Snyk to check for code vulnerabilities (SAST)"
+        uses: actions/checkout@v4
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Install dependencies"
+        run: npm install
+    
+    #----------------------------------------
+    # PART 1 : SAST ANALYSIS
+    #----------------------------------
+      - name : "Run Snyk Code (SAST)"
         uses: snyk/actions/node@master
+        continue-on-error: true # do not fail the workflow
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: code test
-          args: --sarif-file-output=snyk-code.sarif
-        continue-on-error: true          
-
-      - name: "Set up Node.js"
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+          # generate specific file for the code
+          args: --sarif-file-output=snyk-code.sarif --severity-treshold=high
+    #----------------------------------------
+    # PART 2 : Saving report 
+    #----------------------------------
+      - name: "Upload SAST Report as Artifact"
+        uses: actions/upload-artifact@v4
+        if : always()
         with:
-          node-version: '22'
-
-      - name: "Install dependencies"
-        run: npm install
-
-      - name: "Run Snyk to check for vulnerabilities"
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: monitor
-          args: --sarif-file-output=snyk-code.sarif
-        continue-on-error: true
-      - name: "Upload Snyk SARIF report"
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk-code.sarif
+          name: snyk-sast-report
+          path: snyk-code.sarif
+          retention-days: 10

@@ -32,14 +32,22 @@ jobs:
         with:
           command: code test
           # generate specific file for the code
-          args: --sarif-file-output=snyk-code.sarif --severity-treshold=high
+          args: --sarif-file-output=snyk-code.sarif --severity-threshold=high
     #----------------------------------------
     # PART 2 : Saving report 
     #----------------------------------
       - name: "Upload SAST Report as Artifact"
         uses: actions/upload-artifact@v4
-        if : always()
+        if : always() #even if the scan find vulnerabilities
         with:
           name: snyk-sast-report
           path: snyk-code.sarif
           retention-days: 10
+    #----------------------------------------
+    # PART 3 : Upload to GitHub Security Tab
+    #----------------------------------
+      - name: "Upload SARIF to GitHub Code Scanning"
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() # run even if the scan find vulnerabilities
+        with:
+          sarif_file: snyk-code.sarif
